@@ -75,7 +75,7 @@ public class MigrationJobExecutionReporter {
         out.println("Execution Summary:");
         out.println(
                 "---------------------------------------------------------------------------------------------------------------");
-        out.printf("Total: %d, Processed: %d, Read Success: %d, Read Fail: %d, Write Success: %d, Write Fail: %d, Duration: %dms", 
+        out.printf("Total: %d, Processed: %d, Read Success: %d, Read Fail: %d, Write Success: %d, Write Fail: %d, Duration: %dms",
                 totalCount, processedRecordCount,
                 readSuccessCount, (processedRecordCount - readSuccessCount),
                 writeSuccessCount, (processedRecordCount - writeSuccessCount),
@@ -83,7 +83,7 @@ public class MigrationJobExecutionReporter {
         out.println();
         out.println(
                 "---------------------------------------------------------------------------------------------------------------");
-        out.println("Details (in CSV format):");
+        out.println("Errors (in CSV format):");
         out.println(
                 "---------------------------------------------------------------------------------------------------------------");
 
@@ -100,12 +100,15 @@ public class MigrationJobExecutionReporter {
                 identifier = entry.getKey();
                 recordStates = entry.getValue();
 
-                csvPrinter.printRecord(++seq,
-                        identifier,
-                        recordStates.isReadSucceeded(),
-                        recordStates.isWriteSucceeded(),
-                        recordStates.getWriteSize(),
-                        StringUtils.isNotEmpty(recordStates.getReadError()) ? recordStates.getReadError() : recordStates.getWriteError());
+                if(!recordStates.isReadSucceeded() || !recordStates.isWriteSucceeded()) {
+                    csvPrinter.printRecord(++seq,
+                                           identifier,
+                                           recordStates.isReadSucceeded(),
+                                           recordStates.isWriteSucceeded(),
+                                           recordStates.getWriteSize(),
+                                           StringUtils.isNotEmpty(recordStates.getReadError())
+                                               ? recordStates.getReadError() : recordStates.getWriteError());
+                }
             }
         } catch (IOException e) {
             log.error("Error while printing result in CSV.");

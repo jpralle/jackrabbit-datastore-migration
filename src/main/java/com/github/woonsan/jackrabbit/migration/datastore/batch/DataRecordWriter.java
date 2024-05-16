@@ -18,12 +18,16 @@ package com.github.woonsan.jackrabbit.migration.datastore.batch;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.xml.transform.Result;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.jackrabbit.core.data.Backend;
@@ -31,6 +35,7 @@ import org.apache.jackrabbit.core.data.DataIdentifier;
 import org.apache.jackrabbit.core.data.DataRecord;
 import org.apache.jackrabbit.core.data.DataStore;
 import org.apache.jackrabbit.core.data.DataStoreException;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.item.ItemWriter;
@@ -60,7 +65,7 @@ public class DataRecordWriter implements ItemWriter<DataRecord> {
         this.backend = null;
         this.backendTempDir = null;
 
-        log.info("Computing new Identifiers with ds.digest.algorithm {}", 
+        log.info("Computing new Identifiers with ds.digest.algorithm {}",
             System.getProperty("ds.digest.algorithm", "SHA-256"));
 
         // Initialize during constructor, because write() can be called in parallel
@@ -108,11 +113,38 @@ public class DataRecordWriter implements ItemWriter<DataRecord> {
                     executionStates.reportWriteSuccess(identifier);
                     log.info("Record migrated: '{}' ({}%ile)", identifier,
                             String.format("%2.1f", 100.0 * executionStates.getWriteProgress()));
+
                 } catch (Exception e) {
-                    executionStates.reportWriteError(identifier, e.toString());
+
+                    String msg = e.toString();
+                    msg += printCausesAndStacktTrace(e);
+                    executionStates.reportWriteError(identifier, msg);
+
                 }
             }
         }
+    }
+
+    @NotNull
+    private static String printCausesAndStacktTrace(Exception e) throws IOException {
+        String result = "";
+
+        Throwable inner = e.getCause();
+        while(inner != null) {
+            result += ", caused by: " + inner.getMessage();
+            inner = inner.getCause();
+        }
+
+        StringWriter stacktrace = new StringWriter();
+        PrintWriter printStack = new PrintWriter(stacktrace);
+
+        e.printStackTrace(printStack);
+        result += ", strack trace: " + stacktrace;
+
+        stacktrace.close();
+        printStack.close();
+
+        return result;
     }
 
     private long addRecordThroughDataStore(final DataRecord record) throws Exception {
